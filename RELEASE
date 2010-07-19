@@ -37,3 +37,5 @@ RELEASE 2.0.4
 - Fixed memory corruption issue introduced in 2.0.3 with replicating large rows
 
 - cloneNodeFinish() references the proper column in sl_sequence Bug # 119
+
+- Fix for bug #138 - autoconf fix to generate docs via groff
