@@ -3443,10 +3443,13 @@ int
 slonik_subscribe_set(SlonikStmt_subscribe_set * stmt)
 {
 	SlonikAdmInfo *adminfo1;
+	SlonikAdmInfo *adminfo2;
 	SlonDString query;
 	PGresult    *res1;
-	SlonikAdmInfo * adminfo2;
 	int reshape=0;
+	int origin_id;
+
+
 
 	adminfo1 = get_active_adminfo((SlonikStmt *) stmt, stmt->sub_provider);
 	if (adminfo1 == NULL)
@@ -3485,13 +3488,36 @@ slonik_subscribe_set(SlonikStmt_subscribe_set * stmt)
 	dstring_reset(&query);
 
 	slon_mkquery(&query,
+				 "select set_origin from \"_%s\".sl_set where" \
+				 " set_id=%d",stmt->hdr.script->clustername,
+				 stmt->sub_setid);
+	res1 = db_exec_select((SlonikStmt*)stmt,adminfo1,&query);
+	if(res1==NULL) 
+	{
+		PQclear(res1);
+		dstring_free(&query);
+		return -1;
+
+	}
+	origin_id = atoi(PQgetvalue(res1,0,0));
+	if(origin_id <= 0 ) 
+	{
+		PQclear(res1);
+		dstring_free(&query);
+		return -1;
+		
+	}
+	PQclear(res1);
+	dstring_reset(&query);
+	adminfo2 = get_active_adminfo((SlonikStmt *) stmt, origin_id);
+	slon_mkquery(&query,
 				 "select \"_%s\".subscribeSet(%d, %d, %d, '%s', '%s'); ",
 				 stmt->hdr.script->clustername,
 				 stmt->sub_setid, stmt->sub_provider,
 				 stmt->sub_receiver,
 				 (stmt->sub_forward) ? "t" : "f",
 				 (stmt->omit_copy) ? "t" : "f");
-	if (db_exec_evcommand((SlonikStmt *) stmt, adminfo1, &query) < 0)
+	if (db_exec_evcommand((SlonikStmt *) stmt, adminfo2, &query) < 0)
 	{
 		dstring_free(&query);
 		return -1;
