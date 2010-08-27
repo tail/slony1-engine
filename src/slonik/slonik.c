@@ -3457,7 +3457,6 @@ slonik_subscribe_set(SlonikStmt_subscribe_set * stmt)
 	PGresult    *res1;
 	int reshape=0;
 	int origin_id;
-	PGresult * res1;
 
 	adminfo1 = get_active_adminfo((SlonikStmt *) stmt, stmt->sub_provider);
 	if (adminfo1 == NULL)
