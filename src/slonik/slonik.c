@@ -3462,9 +3462,7 @@ slonik_subscribe_set(SlonikStmt_subscribe_set * stmt)
 	if (adminfo1 == NULL)
 		return -1;
 
-	if (db_begin_xact((SlonikStmt *) stmt, adminfo1) < 0)
-		return -1;
-
+	
 	dstring_init(&query);
 
 	/**
@@ -3516,6 +3514,8 @@ slonik_subscribe_set(SlonikStmt_subscribe_set * stmt)
 	PQclear(res1);
 	dstring_reset(&query);
 	adminfo2 = get_active_adminfo((SlonikStmt *) stmt, origin_id);
+	if (db_begin_xact((SlonikStmt *) stmt, adminfo2) < 0)
+		return -1;
 	slon_mkquery(&query,
 				 "select \"_%s\".subscribeSet(%d, %d, %d, '%s', '%s'); ",
 				 stmt->hdr.script->clustername,
@@ -3545,9 +3545,7 @@ slonik_subscribe_set(SlonikStmt_subscribe_set * stmt)
 					 stmt->sub_receiver);	
 		if (db_exec_command((SlonikStmt *) stmt, adminfo2, &query) < 0)
 		{
-			printf("error reshaping subscriber\n");
-			//	dstring_free(&query);
-			//return -1;
+			printf("error reshaping subscriber\n");		
 		}
 		
 		dstring_free(&query);
