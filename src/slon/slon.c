@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+
 #ifdef WIN32
 #include <winsock2.h>
 #include "port/win32service.h"
@@ -77,6 +78,8 @@ static void SlonWatchdog(void);
 static void sighandler(int signo);
 void slon_terminate_worker(void);
 #endif
+typedef void (*sighandler_t)(int);
+static sighandler_t install_signal_handler(int signum, sighandler_t  handler);
 
 int			slon_log_level;
 char	   *pid_file;
@@ -793,9 +796,6 @@ SlonWatchdog(void)
 {
 	pid_t		pid;
 	int shutdown=0;
-#if !defined(CYGWIN) && !defined(WIN32)
-	struct sigaction act;
-#endif
 	slon_log(SLON_INFO, "slon: watchdog process started\n");
 
 
@@ -818,45 +818,36 @@ SlonWatchdog(void)
 		/*
 	 * Install signal handlers
 	 */
-#ifndef CYGWIN
-	memset(&act,0,sizeof(struct sigaction));
-	act.sa_handler = &sighandler;
-	(void) sigemptyset(&act.sa_mask);
-	act.sa_flags = SA_NODEFER;
 
-
-	if (sigaction(SIGHUP, &act, NULL) < 0)
-#else
-	if (signal(SIGHUP, sighandler) == SIG_ERR)
-#endif
+	if (install_signal_handler(SIGHUP, sighandler) == SIG_ERR)
 	{
 		slon_log(SLON_FATAL, "slon: SIGHUP signal handler setup failed -(%d) %s\n", errno, strerror(errno));
 		slon_exit(-1);
 	}
 
-	if (signal(SIGUSR1, sighandler) == SIG_ERR)
+	if (install_signal_handler(SIGUSR1,sighandler) == SIG_ERR)
 	{
 		slon_log(SLON_FATAL, "slon: SIGUSR1 signal handler setup failed -(%d) %s\n", errno, strerror(errno));
 		slon_exit(-1);
 	}
-	if (signal(SIGALRM, sighandler) == SIG_ERR)
+	if (install_signal_handler(SIGALRM,sighandler) == SIG_ERR)
 	{
 		slon_log(SLON_FATAL, "slon: SIGALRM signal handler setup failed -(%d) %s\n", errno, strerror(errno));
 		slon_exit(-1);
 	}
-	if (signal(SIGINT, sighandler) == SIG_ERR)
+	if (install_signal_handler(SIGINT,sighandler) == SIG_ERR)
 	{
 		slon_log(SLON_FATAL, "slon: SIGINT signal handler setup failed -(%d) %s\n", errno, strerror(errno));
 		slon_exit(-1);
 	}
-	if (signal(SIGTERM, sighandler) == SIG_ERR)
+	if (install_signal_handler(SIGTERM,sighandler) == SIG_ERR)
 	{
 		slon_log(SLON_FATAL, "slon: SIGTERM signal handler setup failed -(%d) %s\n", errno, strerror(errno));
 		slon_exit(-1);
 	}
 
 
-	if (signal(SIGQUIT, sighandler) == SIG_ERR)
+	if (install_signal_handler(SIGQUIT,sighandler) == SIG_ERR)
 	{
 		slon_log(SLON_FATAL, "slon: SIGQUIT signal handler setup failed -(%d) %s\n", errno, strerror(errno));
 		slon_exit(-1);
@@ -1021,6 +1012,25 @@ slon_exit(int code)
 	exit(code);
 }
 
+static sighandler_t install_signal_handler(int signo,  sighandler_t handler)
+{
+  
+#ifndef CYGWIN
+	struct sigaction act;
+	act.sa_handler = handler;
+	(void) sigemptyset(&act.sa_mask);
+	act.sa_flags = SA_NODEFER;
+
+
+	if(sigaction(signo, &act, NULL) < 0) 
+	{
+		return SIG_ERR;
+	}
+	return handler;
+#else
+	return signal(signo,handler);
+#endif
+}
 
 /*
  * Local Variables:
