@@ -819,6 +819,7 @@ SlonWatchdog(void)
 	 * Install signal handlers
 	 */
 #ifndef CYGWIN
+	memset(&act,0,sizeof(struct sigaction));
 	act.sa_handler = &sighandler;
 	(void) sigemptyset(&act.sa_mask);
 	act.sa_flags = SA_NODEFER;
