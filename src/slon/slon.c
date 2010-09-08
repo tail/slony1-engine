@@ -796,6 +796,8 @@ SlonWatchdog(void)
 {
 	pid_t		pid;
 	int shutdown=0;
+	int return_code=-99;
+	char * termination_reason="unknown";
 	slon_log(SLON_INFO, "slon: watchdog process started\n");
 
 
@@ -864,8 +866,17 @@ SlonWatchdog(void)
 
 			slon_log(SLON_CONFIG, "slon: child terminated status: %d; pid: %d, current worker pid: %d\n", child_status, pid, slon_worker_pid);
 		}
-
-		slon_log(SLON_CONFIG, "slon: child terminated status: %d; pid: %d, current worker pid: %d\n", child_status, pid, slon_worker_pid);
+		if( WIFSIGNALED(child_status) ) 
+		{
+			return_code=WTERMSIG(child_status);
+			termination_reason="signal";	
+		}
+		else if ( WIFEXITED(child_status) ) 
+		{
+			return_code=WEXITSTATUS(child_status);
+			termination_reason="exit code";
+		}	
+		slon_log(SLON_CONFIG, "slon: child terminated %s: %d; pid: %d, current worker pid: %d\n", termination_reason,return_code, pid, slon_worker_pid);
 
 
 		switch (watchdog_status)
