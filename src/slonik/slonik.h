@@ -304,6 +304,7 @@ struct SlonikStmt_set_add_table_s
 	char	   *use_key;
 	char	   *tab_fqname;
 	char	   *tab_comment;
+	char	   *tables;
 };
 
 
@@ -653,6 +654,7 @@ typedef enum {
 	O_SERVER,
 	O_SET_ID,
 	O_TAB_ID,
+	O_TABLES,
 	O_TIMEOUT,
 	O_USE_KEY,
 	O_WAIT_CONFIRMED,
