@@ -75,6 +75,8 @@ slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
 							SlonikAdmInfo * adminfo1,
 							const char * fqname);
 static int slonik_get_next_tab_id(SlonikStmt * stmt);
+static int find_origin(SlonikStmt * stmt,int set_id);
+
 /* ----------
  * main
  * ----------
@@ -562,17 +564,10 @@ script_check_stmts(SlonikScript * script, SlonikStmt * hdr)
 							   hdr->stmt_filename, hdr->stmt_lno);
 						errors++;
 					}
-					if (stmt->set_origin < 0)
-					{
-						printf("%s:%d: Error: "
-							   "origin must be specified\n",
-							   hdr->stmt_filename, hdr->stmt_lno);
-						errors++;
-					}
-					else
+					if(stmt->set_origin > 0)
 					{
 						if (script_check_adminfo(hdr, stmt->set_origin) < 0)
-							errors++;
+							errors++;				
 					}
 				
 					if (stmt->tab_fqname == NULL &&
@@ -3258,9 +3253,21 @@ int
 slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 {
 	SlonikAdmInfo *adminfo1;
+	int origin=stmt->set_origin;
 
+	if(stmt->set_origin < 0)
+	{
+		origin=find_origin((SlonikStmt*)stmt,stmt->set_id);
+		if(origin < 0 )
+		{
 
-	adminfo1 = get_active_adminfo((SlonikStmt *) stmt, stmt->set_origin);
+			printf("%s:%d:error unable to determine the origin for set %d",
+				   stmt->hdr.stmt_filename,stmt->hdr.stmt_lno,stmt->set_id);
+			return -1;
+		}
+	}
+
+	adminfo1 = get_active_adminfo((SlonikStmt *) stmt, origin);
 	if (adminfo1 == NULL)
 		return -1;
 
@@ -4327,10 +4334,68 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 		}
 		PQclear(res);
 	}
+	dstring_terminate(&query);
 	return max_tab_id+1;
 }
 
+/**
+ * Find the origin node for a particular set.
+ * This function will query the first admin node it
+ * finds to determine the origin of the set.
+ *
+ * If the node doesn't know about the set then
+ * it will query the next admin node until it finds
+ * one that does.
+ *
+ */
+int find_origin(SlonikStmt * stmt,int set_id)
+{
+	
+	SlonikAdmInfo *adminfoDef;
+	SlonDString query;
+	PGresult * res;
+	int origin_id=-1;
+	char * origin_id_str;
+	dstring_init(&query);
+	slon_mkquery(&query,
+				 "select set_origin from \"_%s\".\"sl_set\" where set_id=%d",
+				 stmt->script->clustername,set_id);
 
+	for (adminfoDef = stmt->script->adminfo_list;
+		 adminfoDef; adminfoDef = adminfoDef->next)
+	{	
+		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
+													 adminfoDef->no_id);
+		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
+		if(res == NULL ) 
+		{
+			printf("%s:%d: warning: could not query node %d for origin",
+				   stmt->stmt_filename,stmt->stmt_lno,
+				   adminfo->no_id);
+			continue;
+		}
+		if(PQntuples(res) > 0)
+		{		
+			origin_id_str = PQgetvalue(res,0,0);
+			if(origin_id_str != NULL)
+			   origin_id=strtol(origin_id_str,NULL,10);
+			else
+				continue;
+		}
+		if(origin_id > 0) 
+		{
+			PQclear(res);
+			break;
+		}
+		PQclear(res);
+	}/* for */
+	
+	dstring_terminate(&query);
+	
+
+	return origin_id;
+}
+		   
 
 /*
  * Local Variables:
