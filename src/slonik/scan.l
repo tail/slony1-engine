@@ -142,6 +142,7 @@ success			{ return K_SUCCESS;			}
 switch			{ return K_SWITCH;			}
 sync			{ return K_SYNC;			}
 table			{ return K_TABLE;			}
+tables			{ return K_TABLES;			}
 timeout			{ return K_TIMEOUT;			}
 true			{ return K_TRUE;			}
 try				{ return K_TRY;				}

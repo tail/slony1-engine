@@ -70,7 +70,11 @@ static void script_rollback_all(SlonikStmt * stmt,
 static void script_disconnect_all(SlonikScript * script);
 static void replace_token(char *resout, char *lines, const char *token, 
 					const char *replacement);
-
+static int
+slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
+							SlonikAdmInfo * adminfo1,
+							const char * fqname);
+static int slonik_get_next_tab_id(SlonikStmt * stmt);
 /* ----------
  * main
  * ----------
@@ -570,24 +574,22 @@ script_check_stmts(SlonikScript * script, SlonikStmt * hdr)
 						if (script_check_adminfo(hdr, stmt->set_origin) < 0)
 							errors++;
 					}
-
-					/*
-					 * Check that we have the table id, name and what to use
-					 * for the key.
-					 */
-					if (stmt->tab_id < 0)
+				
+					if (stmt->tab_fqname == NULL &&
+						stmt->tables == NULL )
 					{
 						printf("%s:%d: Error: "
-							   "table id must be specified\n",
+							   "'fully qualfied name' or 'tables' must be specified\n",
 							   hdr->stmt_filename, hdr->stmt_lno);
 						errors++;
 					}
-					if (stmt->tab_fqname == NULL)
+					if (stmt->tab_fqname != NULL &&
+						stmt->tables != NULL)
 					{
-						printf("%s:%d: Error: "
-							   "table FQ-name must be specified\n",
-							   hdr->stmt_filename, hdr->stmt_lno);
-						errors++;
+					  printf("%s:%d: Error: "
+							 "'fully qualified name' and 'tables' can not both"
+							 " be specified",hdr->stmt_filename,
+							 hdr->stmt_lno);
 					}
 					if (stmt->tab_comment == NULL)
 						stmt->tab_comment = strdup(stmt->tab_fqname);
@@ -3256,9 +3258,7 @@ int
 slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 {
 	SlonikAdmInfo *adminfo1;
-	SlonDString query;
-	char	   *idxname;
-	PGresult   *res;
+
 
 	adminfo1 = get_active_adminfo((SlonikStmt *) stmt, stmt->set_origin);
 	if (adminfo1 == NULL)
@@ -3267,13 +3267,24 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 	if (db_begin_xact((SlonikStmt *) stmt, adminfo1) < 0)
 		return -1;
 
-	dstring_init(&query);
+	slonik_set_add_single_table(stmt,adminfo1,stmt->tab_fqname);
+}
+int
+slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
+							SlonikAdmInfo * adminfo1,
+							const char * fqname)
+{
+	SlonDString query;
+	char	   *idxname;
+	PGresult   *res;
+	int tab_id;
 
+  	dstring_init(&query);
 	if (stmt->use_key == NULL)
 	{
 		slon_mkquery(&query,
 			     "select \"_%s\".determineIdxnameUnique('%q', NULL); ",
-			     stmt->hdr.script->clustername, stmt->tab_fqname);
+			     stmt->hdr.script->clustername, fqname);
 
 	}
 	else
@@ -3281,7 +3292,7 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 		slon_mkquery(&query,
 			     "select \"_%s\".determineIdxnameUnique('%q', '%q'); ",
 			     stmt->hdr.script->clustername,
-			     stmt->tab_fqname, stmt->use_key);
+			     fqname, stmt->use_key);
 	}
 
 	db_notice_silent = true;
@@ -3294,11 +3305,22 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 	}
 	idxname = PQgetvalue(res, 0, 0);
 
+	if(stmt->tab_id < 0)
+	{
+		tab_id=slonik_get_next_tab_id((SlonikStmt*)stmt);
+		if(tab_id < 0)
+		{
+			PQclear(res);
+			dstring_free(&query);
+			return -1;
+		}
+	}
+	
 	slon_mkquery(&query,
 				 "select \"_%s\".setAddTable(%d, %d, '%q', '%q', '%q'); ",
 				 stmt->hdr.script->clustername,
-				 stmt->set_id, stmt->tab_id,
-				 stmt->tab_fqname, idxname, stmt->tab_comment);
+				 stmt->set_id, tab_id,
+				 fqname, idxname, stmt->tab_comment);
 	if (db_exec_evcommand((SlonikStmt *) stmt, adminfo1, &query) < 0)
 	{
 		PQclear(res);
@@ -4263,6 +4285,51 @@ replace_token(char *resout, char *lines, const char *token, const char *replacem
 	result_set[o] = '\0';
 	memcpy(resout, result_set, o);
 }
+
+int 
+slonik_get_next_tab_id(SlonikStmt * stmt)
+{
+	SlonikAdmInfo *adminfoDef;
+	SlonDString query;
+	int max_tab_id=0;
+	int tab_id=0;
+	char * tab_id_str;
+	PGresult* res;
+
+	dstring_init(&query);
+	slon_mkquery(&query,
+				 "select max(tab_id) FROM \"_%s\".sl_table",
+				 stmt->script->clustername);
+	
+	for (adminfoDef = stmt->script->adminfo_list;
+		 adminfoDef; adminfoDef = adminfoDef->next)
+	{	
+		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
+															adminfoDef->no_id);
+		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
+		if(res == NULL ) 
+		{
+			printf("%s:%d: Error: could not query node %d for next table id",
+				   stmt->stmt_filename,stmt->stmt_lno,
+				   adminfo->no_id);
+			dstring_terminate(&query);
+			return -1;
+		}
+		if(PQntuples(res) > 0)
+		{		
+			tab_id_str = PQgetvalue(res,0,0);
+			if(tab_id_str != NULL)
+			   tab_id=strtol(tab_id_str,NULL,10);
+			else
+				continue;
+			if(tab_id > max_tab_id)
+				max_tab_id=tab_id;
+		}
+		PQclear(res);
+	}
+	return max_tab_id+1;
+}
+
 
 
 /*
