@@ -3381,6 +3381,8 @@ slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
 			return -1;
 		}
 	}
+	else
+		tab_id=stmt->tab_id;
 	
 	slon_mkquery(&query,
 				 "select \"_%s\".setAddTable(%d, %d, '%q', '%q', '%q'); ",
