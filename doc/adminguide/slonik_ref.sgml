@@ -1344,8 +1344,8 @@ STORE PATH ( SERVER = 1, CLIENT = 2,
 	 to make sure the <application>slonik</application> command
 	 scripts do not deadlock at any critical
 	 moment. If this parameter is omitted then slonik will
-     check every node that it can connect to and find the 
-     highest table id being used across all nodes.</para>
+	 check every node that it can connect to and find the 
+	 highest table id being used across all nodes.</para>
 
          <para> This ID must be unique across all sets; you cannot
          have two tables in the same cluster with the same
@@ -1367,12 +1367,12 @@ STORE PATH ( SERVER = 1, CLIENT = 2,
       </para></listitem>
       </varlistentry>
 	  <varlistentry><term><literal>TABLES = 'string' </literal></term>
-		<listitem><para>A POSIX regular expression that specifies the
-        list of tables that should be added.  This regular expression
-        is evaluated by &postgres against the list of fully qualified table
-        names on the set origin to find the tables that should be added.
-        If <literal>TABLES</literal> is omitted then <literal>
-        FULLY QUALIFIED NAME</literal> must be specified.
+	  <listitem><para>A POSIX regular expression that specifies the
+	    list of tables that should be added.  This regular expression
+	    is evaluated by &postgres against the list of fully qualified table
+	    names on the set origin to find the tables that should be added.
+	    If <literal>TABLES</literal> is omitted then <literal>
+	    FULLY QUALIFIED NAME</literal> must be specified.
         </para></listitem>
 
       <varlistentry><term><literal> COMMENT = 'string' </literal></term>
