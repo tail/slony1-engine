@@ -585,7 +585,19 @@ script_check_stmts(SlonikScript * script, SlonikStmt * hdr)
 							 "'fully qualified name' and 'tables' can not both"
 							 " be specified",hdr->stmt_filename,
 							 hdr->stmt_lno);
+					  errors++;
 					}
+					if ( stmt->tables != NULL && 
+						 stmt->use_key != NULL)
+					{
+
+						printf("%s:%d: ERROR: "
+							   "'key' can not be used with the 'tables' "
+							   "option.",hdr->stmt_filename,
+							   hdr->stmt_lno);
+						errors++;
+					}
+
 					if (stmt->tab_comment == NULL && stmt->tab_fqname != NULL)
 						stmt->tab_comment = strdup(stmt->tab_fqname);
 					else if (stmt->tab_comment==NULL)
@@ -3268,7 +3280,7 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 		if(origin < 0 )
 		{
 
-			printf("%s:%d:error unable to determine the origin for set %d",
+			printf("%s:%d:Error: unable to determine the origin for set %d",
 				   stmt->hdr.stmt_filename,stmt->hdr.stmt_lno,stmt->set_id);
 			return -1;
 		}
@@ -3295,7 +3307,7 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 		result = db_exec_select((SlonikStmt*)stmt,adminfo1,&query);
 		if(result == NULL) 
 		{
-			printf("%s:%d:error unable to search for a list of tables. "
+			printf("%s:%d:Error unable to search for a list of tables. "
 				   "Perhaps your regular expression '%s' is invalid.",
 				   stmt->hdr.stmt_filename,stmt->hdr.stmt_lno,
 				   stmt->tables);
@@ -3311,6 +3323,7 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 										table_name);
 			if(rc < 0)
 			{
+				PQclear(result);
 				dstring_terminate(&query);
 				return rc;
 			}
@@ -4430,7 +4443,7 @@ int find_origin(SlonikStmt * stmt,int set_id)
 			else
 				continue;
 		}
-		if(origin_id > 0) 
+		if(origin_id >= 0) 
 		{
 			PQclear(res);
 			break;
