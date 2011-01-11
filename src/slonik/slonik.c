@@ -586,8 +586,10 @@ script_check_stmts(SlonikScript * script, SlonikStmt * hdr)
 							 " be specified",hdr->stmt_filename,
 							 hdr->stmt_lno);
 					}
-					if (stmt->tab_comment == NULL)
+					if (stmt->tab_comment == NULL && stmt->tab_fqname != NULL)
 						stmt->tab_comment = strdup(stmt->tab_fqname);
+					else if (stmt->tab_comment==NULL)
+						stmt->tab_comment=strdup("replicated table");
 				}
 				break;
 
@@ -3254,6 +3256,11 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 {
 	SlonikAdmInfo *adminfo1;
 	int origin=stmt->set_origin;
+	SlonDString query;
+	PGresult * result;
+	int idx;
+	char * table_name;
+	int rc;
 
 	if(stmt->set_origin < 0)
 	{
@@ -3274,7 +3281,46 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 	if (db_begin_xact((SlonikStmt *) stmt, adminfo1) < 0)
 		return -1;
 
-	slonik_set_add_single_table(stmt,adminfo1,stmt->tab_fqname);
+	if(stmt->tab_fqname==NULL && 
+	   stmt->tables != NULL)
+	{
+		/**
+		 * query the catalog to get a list of tables.
+		 */
+		dstring_init(&query);
+		slon_mkquery(&query,"select table_schema || '.' || table_name "
+					 "from information_schema.tables where "
+					 "table_schema || '.'||table_name ~ '%s' "
+					 "order by 1",stmt->tables);
+		result = db_exec_select((SlonikStmt*)stmt,adminfo1,&query);
+		if(result == NULL) 
+		{
+			printf("%s:%d:error unable to search for a list of tables. "
+				   "Perhaps your regular expression '%s' is invalid.",
+				   stmt->hdr.stmt_filename,stmt->hdr.stmt_lno,
+				   stmt->tables);
+			dstring_terminate(&query);
+			return -1;
+
+		}
+		for(idx = 0; idx < PQntuples(result); idx++)
+		{
+
+			table_name=PQgetvalue(result,idx,0);
+			rc=slonik_set_add_single_table(stmt,adminfo1,
+										table_name);
+			if(rc < 0)
+			{
+				dstring_terminate(&query);
+				return rc;
+			}
+		}
+		PQclear(result);
+		dstring_terminate(&query);
+	}
+	else
+		slonik_set_add_single_table(stmt,adminfo1,stmt->tab_fqname);
+	return 0;
 }
 int
 slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
@@ -3284,7 +3330,7 @@ slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
 	SlonDString query;
 	char	   *idxname;
 	PGresult   *res;
-	int tab_id;
+	int tab_id=-1;
 
   	dstring_init(&query);
 	if (stmt->use_key == NULL)
@@ -4366,6 +4412,8 @@ int find_origin(SlonikStmt * stmt,int set_id)
 	{	
 		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
 													 adminfoDef->no_id);
+		if(adminfo == NULL)
+			continue;
 		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
 		if(res == NULL ) 
 		{
