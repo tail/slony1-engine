@@ -1540,7 +1540,7 @@ SET ADD TABLE (
       <varlistentry><term><literal> FULLY QUALIFIED NAME = 'string' </literal></term>
        <listitem><para> The full sequence name including schema name.
 	   If <literal>SEQUENCES</literal> is specified then
-	   <literal>FULLY QUALIFID NAME</literal> should be omitted.
+	   <literal>FULLY QUALIFIED NAME</literal> should be omitted.
 	   </para></listitem>
       </varlistentry>
 	  <varlistentry><term><literal>SEQUENCES = 'string' </literal></term>
