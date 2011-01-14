@@ -1378,6 +1378,11 @@ STORE PATH ( SERVER = 1, CLIENT = 2,
       <varlistentry><term><literal> COMMENT = 'string' </literal></term>
        <listitem><para> A descriptive text added to the table entry.  </para></listitem>
       </varlistentry>
+	  <varlistentry><term><literal>ADD SEQUENCES= boolean</literal></term>
+	  <listitem><para>A boolean value that indicates if any sequences attached
+		to columns in this table should also be automatically
+		 added to the replication set.  This defaults to false</para></listitem>
+	  </varlistentry>
      </variablelist>
     </para>
     <para> This uses &funsetaddtable;. </para>
@@ -1389,7 +1394,8 @@ SET ADD TABLE (
     ORIGIN = 1,
     ID = 20,
     FULLY QUALIFIED NAME = 'public.tracker_ticket',
-    COMMENT = 'Support ticket'
+    COMMENT = 'Support ticket',
+    ADD SEQUENCES=false
 );
 
 or 

@@ -78,9 +78,17 @@ static int slonik_get_next_tab_id(SlonikStmt * stmt);
 static int slonik_get_next_sequence_id(SlonikStmt * stmt);
 static int find_origin(SlonikStmt * stmt,int set_id);
 static int
-slonik_set_add_single_sequence(SlonikStmt_set_add_sequence*stmt,
+slonik_set_add_single_sequence(SlonikStmt *stmt,
 							   SlonikAdmInfo *adminfo1,
-							   const char * seq_name);
+							   const char * seq_name,
+							   int set_id,
+							   const char * seq_comment,
+							   int seq_id);
+
+static int
+slonik_add_dependent_sequences(SlonikStmt_set_add_table *stmt,
+							   SlonikAdmInfo * adminfo1,
+							   const char * table_name);
 
 /* ----------
  * main
@@ -3345,6 +3353,7 @@ slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
 	char	   *idxname;
 	PGresult   *res;
 	int tab_id=-1;
+	int rc=0;
 
   	dstring_init(&query);
 	if (stmt->use_key == NULL)
@@ -3396,10 +3405,12 @@ slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
 		dstring_free(&query);
 		return -1;
 	}
+	if(stmt->add_sequences)
+		rc = slonik_add_dependent_sequences(stmt,adminfo1,fqname);
 
 	dstring_free(&query);
 	PQclear(res);
-	return 0;
+	return rc;
 }
 
 
@@ -3459,8 +3470,11 @@ slonik_set_add_sequence(SlonikStmt_set_add_sequence * stmt)
 		{
 
 			sequence_name=PQgetvalue(result,idx,0);
-			rc=slonik_set_add_single_sequence(stmt,adminfo1,
-										sequence_name);
+			rc=slonik_set_add_single_sequence((SlonikStmt*)stmt,adminfo1,
+											  sequence_name,
+											  stmt->set_id,
+											  stmt->seq_comment,-1);
+											  
 			if(rc < 0)
 			{
 				PQclear(result);
@@ -3472,38 +3486,41 @@ slonik_set_add_sequence(SlonikStmt_set_add_sequence * stmt)
 		dstring_terminate(&query);
 	}
 	else
-		rc=slonik_set_add_single_sequence(stmt,adminfo1,stmt->seq_fqname);
+		rc=slonik_set_add_single_sequence((SlonikStmt*)stmt,adminfo1,
+										  stmt->seq_fqname,
+										  stmt->set_id,stmt->seq_comment,
+										  stmt->seq_id);
 	
 	return rc;
 }
 int
-slonik_set_add_single_sequence(SlonikStmt_set_add_sequence*stmt,
+slonik_set_add_single_sequence(SlonikStmt *stmt,
 							   SlonikAdmInfo *adminfo1,
-							   const char * seq_name)
+							   const char * seq_name,
+							   int set_id,
+							   const char * seq_comment,
+							   int seq_id)
 {
 	SlonDString query;	
-	int seq_id;
 	/*
 	 * call setAddSequence()
 	 */
 
 	db_notice_silent = true;
 	
-	if(stmt->seq_id < 0)
+	if(seq_id < 0)
 	{
-		seq_id = slonik_get_next_sequence_id((SlonikStmt*)stmt);
+		seq_id = slonik_get_next_sequence_id(stmt);
 		if(seq_id < 0)
 			return -1;
 	}
-	else
-		seq_id=stmt->seq_id;
 
 	dstring_init(&query);
 	slon_mkquery(&query,
 				 "select \"_%s\".setAddSequence(%d, %d, '%q', '%q'); ",
-				 stmt->hdr.script->clustername,
-				 stmt->set_id, seq_id, seq_name,
-				 stmt->seq_comment);
+				 stmt->script->clustername,
+				 set_id, seq_id, seq_name,
+				 seq_comment);
 	if (db_exec_evcommand((SlonikStmt *) stmt, adminfo1, &query) < 0)
 	{
 		db_notice_silent = false;
@@ -4584,7 +4601,72 @@ int find_origin(SlonikStmt * stmt,int set_id)
 
 	return origin_id;
 }
-		   
+
+
+/**
+ * Adds any sequences that table_name depends on to the replication
+ * set.
+ *
+ * 
+ *
+ */
+int
+slonik_add_dependent_sequences(SlonikStmt_set_add_table *stmt,
+							   SlonikAdmInfo * adminfo1,
+							   const char * table_name)
+{
+
+	SlonDString query;
+	PGresult * result;
+	int idx=0;
+	const char * seq_name;
+	char * comment;
+	int rc;
+
+	dstring_init(&query);
+	slon_mkquery(&query,
+				 "select pg_get_serial_sequence('%s',column_name) "
+				 "FROM information_schema.columns where table_schema ||"
+				 "'.' || table_name='%s'",
+				 table_name,table_name);
+	result = db_exec_select((SlonikStmt*)stmt,adminfo1,&query);
+	if( result == NULL)
+	{
+		dstring_terminate(&query);
+		return -1;
+	}
+	for(idx=0; idx < PQntuples(result);idx++)
+	{
+	
+		if(!PQgetisnull(result,idx,0)  )
+		{
+			seq_name=PQgetvalue(result,idx,0);
+			/**
+			 * add the sequence to the replication set
+			 */
+			comment=malloc(strlen(table_name)+strlen("sequence for"+1));
+			sprintf(comment,"sequence for %s",table_name);
+			rc=slonik_set_add_single_sequence((SlonikStmt*)stmt,adminfo1,
+										   seq_name,
+										   stmt->set_id,
+										   comment,-1);
+			free(comment);
+			if(rc < 0 )
+			{
+				PQclear(result);
+				dstring_terminate(&query);
+				return rc;
+			}
+				
+		}
+		
+	}/*for*/
+	PQclear(result);
+	dstring_terminate(&query);
+	return 0;
+
+}
+							   
 
 /*
  * Local Variables:
