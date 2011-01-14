@@ -315,6 +315,7 @@ struct SlonikStmt_set_add_sequence_s
 	int			set_origin;
 	int			seq_id;
 	char	   *seq_fqname;
+	char	   *sequences;
 	char	   *seq_comment;
 };
 
@@ -651,6 +652,7 @@ typedef enum {
 	O_PROVIDER,
 	O_RECEIVER,
 	O_SECONDS,
+	O_SEQUENCES,
 	O_SERVER,
 	O_SET_ID,
 	O_TAB_ID,

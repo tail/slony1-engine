@@ -133,6 +133,7 @@ restart			{ return K_RESTART;			}
 script			{ return K_SCRIPT;			}
 seconds         { return K_SECONDS;         }
 sequence		{ return K_SEQUENCE;		}
+sequences		{ return K_SEQUENCES;		}
 server			{ return K_SERVER;			}
 set				{ return K_SET;				}
 sleep			{ return K_SLEEP;			}
