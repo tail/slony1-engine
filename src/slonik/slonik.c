@@ -75,7 +75,12 @@ slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
 							SlonikAdmInfo * adminfo1,
 							const char * fqname);
 static int slonik_get_next_tab_id(SlonikStmt * stmt);
+static int slonik_get_next_sequence_id(SlonikStmt * stmt);
 static int find_origin(SlonikStmt * stmt,int set_id);
+static int
+slonik_set_add_single_sequence(SlonikStmt_set_add_sequence*stmt,
+							   SlonikAdmInfo *adminfo1,
+							   const char * seq_name);
 
 /* ----------
  * main
@@ -621,40 +626,35 @@ script_check_stmts(SlonikScript * script, SlonikStmt * hdr)
 							   hdr->stmt_filename, hdr->stmt_lno);
 						errors++;
 					}
-					if (stmt->set_origin < 0)
-					{
-						printf("%s:%d: Error: "
-							   "origin must be specified\n",
-							   hdr->stmt_filename, hdr->stmt_lno);
-						errors++;
-					}
-					else
-					{
+					if (stmt->set_origin >= 0)
+					{					
 						if (script_check_adminfo(hdr, stmt->set_origin) < 0)
 							errors++;
 					}
-
-					/*
-					 * Check that we have the table id, name and what to use
-					 * for the key.
-					 */
-					if (stmt->seq_id < 0)
+					
+					if (stmt->seq_fqname == NULL &&
+						stmt->sequences == NULL )
 					{
 						printf("%s:%d: Error: "
-							   "sequence id must be specified\n",
+							   "sequence FQ-name or sequences must be specified\n",
 							   hdr->stmt_filename, hdr->stmt_lno);
 						errors++;
 					}
-					if (stmt->seq_fqname == NULL)
+					if (stmt->seq_fqname != NULL &&
+						stmt->sequences != NULL)
 					{
-						printf("%s:%d: Error: "
-							   "sequence FQ-name must be specified\n",
-							   hdr->stmt_filename, hdr->stmt_lno);
-						errors++;
+					  printf("%s:%d: Error: "
+							 "'fully qualified name' and 'sequences' can not both"
+							 " be specified",hdr->stmt_filename,
+							 hdr->stmt_lno);
+					  errors++;
 					}
 
-					if (stmt->seq_comment == NULL)
+					if (stmt->seq_comment == NULL &&
+						stmt->seq_fqname != NULL)
 						stmt->seq_comment = strdup(stmt->seq_fqname);
+					else if (stmt->seq_comment == NULL)
+						stmt->seq_comment=strdup("replicated sequence");
 				}
 				break;
 
@@ -3315,6 +3315,7 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 			return -1;
 
 		}
+		rc=0;
 		for(idx = 0; idx < PQntuples(result); idx++)
 		{
 
@@ -3332,8 +3333,8 @@ slonik_set_add_table(SlonikStmt_set_add_table * stmt)
 		dstring_terminate(&query);
 	}
 	else
-		slonik_set_add_single_table(stmt,adminfo1,stmt->tab_fqname);
-	return 0;
+		rc=slonik_set_add_single_table(stmt,adminfo1,stmt->tab_fqname);
+	return rc;
 }
 int
 slonik_set_add_single_table(SlonikStmt_set_add_table * stmt,
@@ -3406,25 +3407,102 @@ int
 slonik_set_add_sequence(SlonikStmt_set_add_sequence * stmt)
 {
 	SlonikAdmInfo *adminfo1;
+	int origin=stmt->set_origin;
+	int rc;
+	const char * sequence_name;
 	SlonDString query;
+	int idx;
+	PGresult * result;
 
-	adminfo1 = get_active_adminfo((SlonikStmt *) stmt, stmt->set_origin);
+
+	if(stmt->set_origin < 0)
+	{
+		origin=find_origin((SlonikStmt*)stmt,stmt->set_id);
+		if(origin < 0 )
+		{
+			printf("%s:%d:Error: unable to determine the origin for set %d",
+				   stmt->hdr.stmt_filename,stmt->hdr.stmt_lno,stmt->set_id);
+			return -1;
+		}
+	}
+	
+	adminfo1 = get_active_adminfo((SlonikStmt *) stmt, origin);
 	if (adminfo1 == NULL)
 		return -1;
 
 	if (db_begin_xact((SlonikStmt *) stmt, adminfo1) < 0)
 		return -1;
+	if(stmt->seq_fqname==NULL &&
+	   stmt->sequences != NULL)
+	{
+		/**
+		 * query the catalog to get a list of tables.
+		 */
+		dstring_init(&query);
+		slon_mkquery(&query,"select sequence_schema || '.' || sequence_name "
+					 "from information_schema.sequences where "
+					 "sequence_schema || '.'||sequence_name ~ '%s' "
+					 "order by 1",stmt->sequences);
+		result = db_exec_select((SlonikStmt*)stmt,adminfo1,&query);
+		if(result == NULL) 
+		{
+			printf("%s:%d:Error unable to search for a list of sequences. "
+				   "Perhaps your regular expression '%s' is invalid.",
+				   stmt->hdr.stmt_filename,stmt->hdr.stmt_lno,
+				   stmt->sequences);
+			dstring_terminate(&query);
+			return -1;
 
-	dstring_init(&query);
+		}
+		rc=0;
+		for(idx = 0; idx < PQntuples(result); idx++)
+		{
 
+			sequence_name=PQgetvalue(result,idx,0);
+			rc=slonik_set_add_single_sequence(stmt,adminfo1,
+										sequence_name);
+			if(rc < 0)
+			{
+				PQclear(result);
+				dstring_terminate(&query);
+				return rc;
+			}
+		}
+		PQclear(result);
+		dstring_terminate(&query);
+	}
+	else
+		rc=slonik_set_add_single_sequence(stmt,adminfo1,stmt->seq_fqname);
+	
+	return rc;
+}
+int
+slonik_set_add_single_sequence(SlonikStmt_set_add_sequence*stmt,
+							   SlonikAdmInfo *adminfo1,
+							   const char * seq_name)
+{
+	SlonDString query;	
+	int seq_id;
 	/*
 	 * call setAddSequence()
 	 */
+
 	db_notice_silent = true;
+	
+	if(stmt->seq_id < 0)
+	{
+		seq_id = slonik_get_next_sequence_id((SlonikStmt*)stmt);
+		if(seq_id < 0)
+			return -1;
+	}
+	else
+		seq_id=stmt->seq_id;
+
+	dstring_init(&query);
 	slon_mkquery(&query,
 				 "select \"_%s\".setAddSequence(%d, %d, '%q', '%q'); ",
 				 stmt->hdr.script->clustername,
-				 stmt->set_id, stmt->seq_id, stmt->seq_fqname,
+				 stmt->set_id, seq_id, seq_name,
 				 stmt->seq_comment);
 	if (db_exec_evcommand((SlonikStmt *) stmt, adminfo1, &query) < 0)
 	{
@@ -4397,6 +4475,54 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 	}
 	dstring_terminate(&query);
 	return max_tab_id+1;
+}
+
+
+
+
+int 
+slonik_get_next_sequence_id(SlonikStmt * stmt)
+{
+	SlonikAdmInfo *adminfoDef;
+	SlonDString query;
+	int max_seq_id=0;
+	int seq_id=0;
+	char * seq_id_str;
+	PGresult* res;
+
+	dstring_init(&query);
+	slon_mkquery(&query,
+				 "select max(seq_id) FROM \"_%s\".sl_sequence",
+				 stmt->script->clustername);
+	
+	for (adminfoDef = stmt->script->adminfo_list;
+		 adminfoDef; adminfoDef = adminfoDef->next)
+	{	
+		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
+															adminfoDef->no_id);
+		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
+		if(res == NULL ) 
+		{
+			printf("%s:%d: Error: could not query node %d for next sequence id",
+				   stmt->stmt_filename,stmt->stmt_lno,
+				   adminfo->no_id);
+			dstring_terminate(&query);
+			return -1;
+		}
+		if(PQntuples(res) > 0)
+		{		
+			seq_id_str = PQgetvalue(res,0,0);
+			if(seq_id_str != NULL)
+			   seq_id=strtol(seq_id_str,NULL,10);
+			else
+				continue;
+			if(seq_id > max_seq_id)
+				max_seq_id=seq_id;
+		}
+		PQclear(res);
+	}
+	dstring_terminate(&query);
+	return max_seq_id+1;
 }
 
 /**

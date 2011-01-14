@@ -1516,8 +1516,7 @@ SET ADD TABLE (
 	</para></listitem>
       </varlistentry>
       <varlistentry><term><literal> ORIGIN = ival </literal></term>
-       <listitem><para> Origin node for the set.  A future version of <application>slonik</application>
-	 might figure out this information by itself.</para></listitem>
+       <listitem><para> Origin node for the set. (optional) </para></listitem>
       </varlistentry>
       <varlistentry><term><literal> ID = ival </literal></term>
        
@@ -1526,12 +1525,27 @@ SET ADD TABLE (
 	    sequences</emphasis> throughout the cluster; the numbering of
 	   tables is separate, so you might have a table with ID 20 and a
 	   sequence with ID 20, and they would be recognized as
-	   separate.</para> </note></para></listitem>
+	   separate.</para> </note>  This parameter is optional.  
+	   If this parameter is omitted
+	   then slonik will check every node that it can connect to and find the 
+	   highest table id being used across all nodes. </para></listitem>
        
       </varlistentry>
       <varlistentry><term><literal> FULLY QUALIFIED NAME = 'string' </literal></term>
-       <listitem><para> The full sequence name including schema name.</para></listitem>
+       <listitem><para> The full sequence name including schema name.
+	   If <literal>SEQUENCES</literal> is specified then
+	   <literal>FULLY QUALIFID NAME</literal> should be omitted.
+	   </para></listitem>
       </varlistentry>
+	  <varlistentry><term><literal>SEQUENCES = 'string' </literal></term>
+		<listitem><para>A POSIX regular expression that matches to the
+		sequences that should be added to the replication set.
+		This regular expression is passed to postgresql for evaluation
+		on the set origin against fully qualified sequence names. This
+		parameter is optional. If <literal>FULLY QUALIFIED NAME</literal>
+		is omitted then
+		<literal>SEQUENCES</literal> must be specified. </para></listitem>
+		</varlistentry>
       <varlistentry><term><literal> COMMENT = 'string' </literal></term>
        <listitem><para> A descriptive text added to the sequence entry.  </para></listitem>
       </varlistentry>
@@ -1548,6 +1562,15 @@ SET ADD TABLE (
      FULLY QUALIFIED NAME = 'public.tracker_ticket_id_seq',
      COMMENT = 'Support ticket ID sequence'
      );
+
+	 or
+
+	 SET ADD SEQUENCE(
+	 SET ID=1,
+	 SEQUENCES='public.tracker_ticket_id_seq'
+	 );
+
+
     </programlisting>
    </refsect1>
    <refsect1> <title> Locking Behaviour </title>

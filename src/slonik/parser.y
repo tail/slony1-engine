@@ -191,6 +191,7 @@ static int	assign_options(statement_option *so, option_list *ol);
 %token	K_SWITCH
 %token	K_TABLE
 %token  K_TABLES
+%token  K_SEQUENCES
 %token	K_TIMEOUT
 %token	K_TRUE
 %token	K_TRY
@@ -1010,6 +1011,7 @@ stmt_set_add_sequence : lno K_SET K_ADD K_SEQUENCE option_list
 							STMT_OPTION_INT( O_ID, -1 ),
 							STMT_OPTION_STR( O_FQNAME, NULL ),
 							STMT_OPTION_STR( O_COMMENT, NULL ),
+							STMT_OPTION_STR( O_SEQUENCES, NULL),
 							STMT_OPTION_END
 						};
 
@@ -1027,6 +1029,7 @@ stmt_set_add_sequence : lno K_SET K_ADD K_SEQUENCE option_list
 							new->seq_id			= opt[2].ival;
 							new->seq_fqname		= opt[3].str;
 							new->seq_comment	= opt[4].str;
+							new->sequences		= opt[5].str;
 						}
 						else
 							parser_errors++;
@@ -1702,6 +1705,11 @@ option_list_item	: K_ID '=' option_item_id
 						$3->opt_code	= O_TABLES;
 						$$ = $3;
 					}
+					| K_SEQUENCES '=' option_item_literal
+					{
+						$3->opt_code = O_SEQUENCES;
+						$$ = $3;
+					}
 					;
 
 option_item_id		: id
@@ -1837,11 +1845,12 @@ option_str(option_code opt_code)
 		case O_ORIGIN:			return "origin";
 		case O_PROVIDER:		return "provider";
 		case O_RECEIVER:		return "receiver";
-    	case O_SECONDS:         return "seconds";
+		case O_SECONDS:			return "seconds";
+		case O_SEQUENCES:		return "sequences";
 		case O_SERVER:			return "server";
 		case O_SET_ID:			return "set id";
 		case O_TAB_ID:			return "table id";
-		case O_TABLES:			return "tables";
+		case O_TABLES:			return "tables";			
 		case O_TIMEOUT:			return "timeout";
 		case O_USE_KEY:			return "key";
 		case O_WAIT_CONFIRMED:	return "confirmed";
