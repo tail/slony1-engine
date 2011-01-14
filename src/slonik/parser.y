@@ -975,6 +975,7 @@ stmt_set_add_table	: lno K_SET K_ADD K_TABLE option_list
 							STMT_OPTION_STR( O_USE_KEY, NULL ),
 							STMT_OPTION_STR( O_COMMENT, NULL ),
 							STMT_OPTION_STR( O_TABLES,NULL),
+							STMT_OPTION_YN(O_ADD_SEQUENCES,0),
 							STMT_OPTION_END
 						};
 
@@ -994,6 +995,7 @@ stmt_set_add_table	: lno K_SET K_ADD K_TABLE option_list
 							new->use_key		= opt[4].str;
 							new->tab_comment	= opt[5].str;
 							new->tables			= opt[6].str;
+							new->add_sequences  = opt[7].ival;
 						}
 						else
 							parser_errors++;
@@ -1710,6 +1712,12 @@ option_list_item	: K_ID '=' option_item_id
 						$3->opt_code = O_SEQUENCES;
 						$$ = $3;
 					}
+					| K_ADD K_SEQUENCES '=' option_item_yn
+					{
+						$4->opt_code=O_ADD_SEQUENCES;
+						$$=$4;
+
+					}
 					;
 
 option_item_id		: id
@@ -1825,6 +1833,7 @@ option_str(option_code opt_code)
 	switch (opt_code)
 	{
 		case O_ADD_ID:			return "add id";
+		case O_ADD_SEQUENCES:	return "add sequences"; 
 		case O_BACKUP_NODE:		return "backup node";
 		case O_CLIENT:			return "client";
 		case O_COMMENT:			return "comment";

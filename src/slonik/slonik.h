@@ -305,6 +305,7 @@ struct SlonikStmt_set_add_table_s
 	char	   *tab_fqname;
 	char	   *tab_comment;
 	char	   *tables;
+	int			add_sequences;
 };
 
 
@@ -631,6 +632,7 @@ extern int	yylex(void);
  */
 typedef enum {
 	O_ADD_ID,
+	O_ADD_SEQUENCES,
 	O_BACKUP_NODE,
 	O_CLIENT,
 	O_COMMENT,
