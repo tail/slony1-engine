@@ -20,6 +20,7 @@ coordinator.includeFile('disorder/tests/MultipleOrigins.js');
 coordinator.includeFile('disorder/tests/BigBacklog.js');
 coordinator.includeFile('disorder/tests/LongTransaction.js');
 coordinator.includeFile('disorder/tests/RenameTests.js');
+coordinator.includeFile('disorder/tests/BulkAddingTest.js');
 var tests = [new EmptySet(coordinator,results)
              //,new OmitCopy(coordinator,results)
              ,new UnsubscribeBeforeEnable(coordinator,results)
@@ -43,7 +44,7 @@ var tests = [new EmptySet(coordinator,results)
 			,new LongTransaction(coordinator,results)
 			,new RenameTests(coordinator,results)
              ];
-//tests=[ new CloneNode(coordinator,results)];
+//tests=[ new BulkAddingTest(coordinator,results)];
 var basicTest = new BasicTest(coordinator,results);
 
 //Setup the schema.
