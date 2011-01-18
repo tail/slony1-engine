@@ -43,6 +43,7 @@ var tests = [new EmptySet(coordinator,results)
 			,new BigBacklogTest(coordinator,results)
 			,new LongTransaction(coordinator,results)
 			,new RenameTests(coordinator,results)
+			,new BulkAddingTest(coordinator,results)
              ];
 //tests=[ new BulkAddingTest(coordinator,results)];
 var basicTest = new BasicTest(coordinator,results);
