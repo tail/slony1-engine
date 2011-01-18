@@ -4469,15 +4469,50 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 	{	
 		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
 															adminfoDef->no_id);
-		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
-		if(res == NULL ) 
+		if( adminfo == NULL)
 		{
+			
 			printf("%s:%d: Error: could not query node %d for next table id",
 				   stmt->stmt_filename,stmt->stmt_lno,
 				   adminfo->no_id);
 			dstring_terminate(&query);
 			return -1;
 		}
+		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
+		if(res == NULL ) 
+		{
+			/**
+			 * if the node does not yet have slony installed on
+			 * it then this is okay (we don't error out)
+			 * 
+			 */
+			SlonDString query2;
+			slon_mkquery(&query2,"select count(*) FROM information_schema"
+						 ".tables where schema_name='_%s' AND table_name"
+						 "='sl_table");
+			res = db_exec_select((SlonikStmt*)stmt,adminfo,&query2);
+			if ( res == NULL ||
+				 PQntuples(res) <= 0 ||
+				 strncmp(PQgetvalue(res,0,0),"1",1)==0)
+			{
+
+				printf("%s:%d: Error: could not query node %d for next table id",
+					   stmt->stmt_filename,stmt->stmt_lno,
+					   adminfo->no_id);
+				if( res != NULL)
+					PQclear(res);
+				dstring_terminate(&query);
+				return -1;
+			}
+			/**
+			 * else not an issue
+			 */
+			dstring_terminate(&query);
+			PQclear(res);
+			continue;
+			
+		
+		} /* res == null */
 		if(PQntuples(res) > 0)
 		{		
 			tab_id_str = PQgetvalue(res,0,0);
@@ -4517,15 +4552,53 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 	{	
 		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
 															adminfoDef->no_id);
-		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
-		if(res == NULL ) 
+		if( adminfo == NULL)
 		{
+			
 			printf("%s:%d: Error: could not query node %d for next sequence id",
 				   stmt->stmt_filename,stmt->stmt_lno,
 				   adminfo->no_id);
 			dstring_terminate(&query);
 			return -1;
 		}
+		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
+	
+		if(res == NULL ) 
+		{
+			/**
+			 * if the node does not yet have slony installed on
+			 * it then this is okay (we don't error out)
+			 * 
+			 */
+			SlonDString query2;
+			slon_mkquery(&query2,"select count(*) FROM information_schema"
+						 ".tables where schema_name='_%s' AND table_name"
+						 "='sl_sequence");
+			res = db_exec_select((SlonikStmt*)stmt,adminfo,&query2);
+			if ( res == NULL ||
+				 PQntuples(res) <= 0 ||
+				 strncmp(PQgetvalue(res,0,0),"1",1)==0)
+			{
+
+				printf("%s:%d: Error: could not query node %d for next "
+					   "sequence id",
+					   stmt->stmt_filename,stmt->stmt_lno,
+					   adminfo->no_id);
+				if( res != NULL)
+					PQclear(res);
+				dstring_terminate(&query);
+				return -1;
+			}
+			/**
+			 * else not an issue
+			 */
+			dstring_terminate(&query);
+			PQclear(res);
+			continue;
+			
+		
+		} /* res == null */
+
 		if(PQntuples(res) > 0)
 		{		
 			seq_id_str = PQgetvalue(res,0,0);
