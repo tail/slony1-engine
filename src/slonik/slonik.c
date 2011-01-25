@@ -4469,9 +4469,9 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 	{	
 		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
 															adminfoDef->no_id);
-		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
-		if(res == NULL ) 
+		if( adminfo == NULL)
 		{
+			
 			printf("%s:%d: Error: could not query node %d for next table id",
 				   stmt->stmt_filename,stmt->stmt_lno,
 				   adminfo->no_id);
@@ -4552,9 +4552,9 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 	{	
 		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
 															adminfoDef->no_id);
-		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
-		if(res == NULL ) 
+		if( adminfo == NULL)
 		{
+			
 			printf("%s:%d: Error: could not query node %d for next sequence id",
 				   stmt->stmt_filename,stmt->stmt_lno,
 				   adminfo->no_id);
