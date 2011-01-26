@@ -44,9 +44,9 @@ var tests =
      ,new BigBacklogTest(coordinator,results)
      ,new LongTransaction(coordinator,results)
      ,new RenameTests(coordinator,results)
-     ,new BulkAddingTests(coordinator,results)
+     ,new BulkAddingTest(coordinator,results)
     ];
-//tests=[ new CloneNode(coordinator,results)];
+//tests=[ new BulkAddingTest(coordinator,results)];
 var basicTest = new BasicTest(coordinator,results);
 
 //Setup the schema.
