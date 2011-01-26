@@ -89,7 +89,8 @@ static int
 slonik_add_dependent_sequences(SlonikStmt_set_add_table *stmt,
 							   SlonikAdmInfo * adminfo1,
 							   const char * table_name);
-
+static int slonik_is_slony_installed(SlonikStmt * stmt,
+						  SlonikAdmInfo * adminfo);
 /* ----------
  * main
  * ----------
@@ -4449,7 +4450,7 @@ replace_token(char *resout, char *lines, const char *token, const char *replacem
 	memcpy(resout, result_set, o);
 }
 
-int 
+static int 
 slonik_get_next_tab_id(SlonikStmt * stmt)
 {
 	SlonikAdmInfo *adminfoDef;
@@ -4472,61 +4473,49 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 		if( adminfo == NULL)
 		{
 			
-			printf("%s:%d: Error: could not query node %d for next table id",
+			printf("%s:%d: Error: could not connect to node %d for next table"
+				   " id",
 				   stmt->stmt_filename,stmt->stmt_lno,
-				   adminfo->no_id);
+				   adminfoDef->no_id);
 			dstring_terminate(&query);
 			return -1;
 		}
-		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
-		if(res == NULL ) 
+		if(slonik_is_slony_installed(stmt,adminfo) > 0 )
 		{
-			/**
-			 * if the node does not yet have slony installed on
-			 * it then this is okay (we don't error out)
-			 * 
-			 */
-			SlonDString query2;
-			dstring_init(&query2);
-			slon_mkquery(&query2,"select count(*) FROM information_schema"
-						 ".tables where schema_name='_%s' AND table_name"
-						 "='sl_table");
-			res = db_exec_select((SlonikStmt*)stmt,adminfo,&query2);
-			if ( res == NULL ||
-				 PQntuples(res) <= 0 ||
-				 strncmp(PQgetvalue(res,0,0),"1",1)==0)
+			res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
+			if(res == NULL ) 
 			{
-
-				printf("%s:%d: Error: could not query node %d for next table id",
+				printf("%s:%d: Error:could not query node %d for next table id",
 					   stmt->stmt_filename,stmt->stmt_lno,
 					   adminfo->no_id);
 				if( res != NULL)
 					PQclear(res);
 				dstring_terminate(&query);
-				dstring_terminate(&query2);
 				return -1;
 			}
+		}
+		else
+		{
 			/**
-			 * else not an issue
+			 * if slony is not yet installed on the node we can skip it.
 			 */
-			dstring_terminate(&query2);
-			PQclear(res);
 			continue;
-			
-		
-		} /* res == null */
+		}
 		if(PQntuples(res) > 0)
 		{		
 			tab_id_str = PQgetvalue(res,0,0);
 			if(tab_id_str != NULL)
 			   tab_id=strtol(tab_id_str,NULL,10);
 			else
-				continue;
+			{
+				PQclear(res);
+				continue;				
+			}
 			if(tab_id > max_tab_id)
 				max_tab_id=tab_id;
 		}
 		PQclear(res);
-	}
+	}/*for*/
 	dstring_terminate(&query);
 	return max_tab_id+1;
 }
@@ -4534,7 +4523,7 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 
 
 
-int 
+static int 
 slonik_get_next_sequence_id(SlonikStmt * stmt)
 {
 	SlonikAdmInfo *adminfoDef;
@@ -4543,6 +4532,7 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 	int seq_id=0;
 	char * seq_id_str;
 	PGresult* res;
+	int rc;
 
 	dstring_init(&query);
 	slon_mkquery(&query,
@@ -4559,30 +4549,16 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 			
 			printf("%s:%d: Error: could not query node %d for next sequence id",
 				   stmt->stmt_filename,stmt->stmt_lno,
-				   adminfo->no_id);
+				   adminfoDef->no_id);
 			dstring_terminate(&query);
 			return -1;
 		}
-		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
-	
-		if(res == NULL ) 
+		if( (rc = slonik_is_slony_installed(stmt,adminfo)) > 0)
 		{
-			/**
-			 * if the node does not yet have slony installed on
-			 * it then this is okay (we don't error out)
-			 * 
-			 */
-			SlonDString query2;
-			dstring_init(&query2);
-			slon_mkquery(&query2,"select count(*) FROM information_schema"
-						 ".tables where schema_name='_%s' AND table_name"
-						 "='sl_sequence");
-			res = db_exec_select((SlonikStmt*)stmt,adminfo,&query2);
-			if ( res == NULL ||
-				 PQntuples(res) <= 0 ||
-				 strncmp(PQgetvalue(res,0,0),"1",1)==0)
+			res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
+			if(res == NULL ) 
 			{
-
+				
 				printf("%s:%d: Error: could not query node %d for next "
 					   "sequence id",
 					   stmt->stmt_filename,stmt->stmt_lno,
@@ -4590,26 +4566,27 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 				if( res != NULL)
 					PQclear(res);
 				dstring_terminate(&query);
-				dstring_terminate(&query2);
 				return -1;
 			}
-			/**
-			 * else not an issue
-			 */
-			dstring_terminate(&query2);
-			PQclear(res);
+		}
+		else if (rc < 0)
+		{
+			return rc;
+		}
+		else
+		{
 			continue;
-			
-		
-		} /* res == null */
-
+		}		
 		if(PQntuples(res) > 0)
 		{		
 			seq_id_str = PQgetvalue(res,0,0);
 			if(seq_id_str != NULL)
 			   seq_id=strtol(seq_id_str,NULL,10);
 			else
+			{
+				PQclear(res);
 				continue;
+			}
 			if(seq_id > max_seq_id)
 				max_seq_id=seq_id;
 		}
@@ -4629,7 +4606,7 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
  * one that does.
  *
  */
-int find_origin(SlonikStmt * stmt,int set_id)
+static int find_origin(SlonikStmt * stmt,int set_id)
 {
 	
 	SlonikAdmInfo *adminfoDef;
@@ -4661,16 +4638,19 @@ int find_origin(SlonikStmt * stmt,int set_id)
 		{		
 			origin_id_str = PQgetvalue(res,0,0);
 			if(origin_id_str != NULL)
+			{
 			   origin_id=strtol(origin_id_str,NULL,10);
+			   PQclear(res);
+			}
 			else
+			{
+				PQclear(res);
 				continue;
+
+			}
 		}
 		if(origin_id >= 0) 
-		{
-			PQclear(res);
 			break;
-		}
-		PQclear(res);
 	}/* for */
 	
 	dstring_terminate(&query);
@@ -4743,7 +4723,44 @@ slonik_add_dependent_sequences(SlonikStmt_set_add_table *stmt,
 	return 0;
 
 }
-							   
+
+
+/**
+ * checks to see if slony is installed on the given node.
+ *
+ * this function will check to see if slony tables exist
+ * on the node by querying the information_schema.
+ * 
+ * returns:
+ *        -1 => could not query information schema
+ *         0 => slony not installed
+ *         1 => slony is installed.
+ */
+static int
+slonik_is_slony_installed(SlonikStmt * stmt,
+						  SlonikAdmInfo * adminfo)
+{
+  	SlonDString query;
+	PGresult * res;
+	dstring_init(&query);
+	int rc=-1;
+	slon_mkquery(&query,"select count(*) FROM information_schema"
+				 ".tables where table_schema='_%s' AND table_name"
+				 "='sl_table'",stmt->script->clustername);
+	res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
+	if ( res == NULL ||  PQntuples(res) <= 0 )
+		rc=-1;
+	else if( strncmp(PQgetvalue(res,0,0),"1",1)==0)
+		rc=1;
+	else 
+		rc=0;
+	
+	if(res != NULL)
+		PQclear(res);
+	dstring_terminate(&query);
+	return rc;
+
+}						   
 
 /*
  * Local Variables:
