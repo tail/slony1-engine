@@ -1373,7 +1373,46 @@ STORE PATH ( SERVER = 1, CLIENT = 2,
 	    names on the set origin to find the tables that should be added.
 	    If <literal>TABLES</literal> is omitted then <literal>
 	    FULLY QUALIFIED NAME</literal> must be specified.
-        </para></listitem>
+        </para> 
+
+	<warning><para> The <literal>TABLES</literal> option requires
+	that all the tables are in <quote>good form</quote> to be replicated
+	en masse.  The request will fail, not configuring any tables
+	for replication, if it encounters any of the following
+	problems:
+	  <itemizedlist>
+
+	   <listitem><para> Each table must have a <literal>PRIMARY
+	   KEY</literal> defined, and a candidate primary key will not
+	   suffice.</para></listitem>
+
+	   <listitem><para> If a table is found that is already
+	   replicated, the request will fail.</para></listitem>
+
+	   <listitem><para> The <literal>TABLES</literal> option needs
+	   to automatically assign table ID values, and looks through
+	   the configuration on every node specified by <xref
+	   linkend="admconninfo">, finding the largest ID in use, and
+	   starting after that for the table IDs that it
+	   assigns.</para>
+
+	    <para> It considers it a <quote>benign</quote> failure to
+	    find a node that does not yet have a &slony1; schema
+	    assigned, as that may be expected to occur if tables are
+	    configured before all the nodes have been configured using
+	    <xref linkend="stmtstorenode">.  If there is no &slony1;
+	    schema, then that node certainly hasn't contributed
+	    anything to an increase in the table IDs in use.</para>
+
+	     <para> On the other hand, if a node specified by <xref
+	     linkend="admconninfo"> is not available to be queried,
+	     the request <emphasis>will
+	     fail.</emphasis></para></listitem>
+
+	  </itemizedlist></para>
+	</warning>
+
+       </listitem>
 
       <varlistentry><term><literal> COMMENT = 'string' </literal></term>
        <listitem><para> A descriptive text added to the table entry.  </para></listitem>
