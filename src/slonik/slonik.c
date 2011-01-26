@@ -4487,6 +4487,7 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 			 * 
 			 */
 			SlonDString query2;
+			dstring_init(&query2);
 			slon_mkquery(&query2,"select count(*) FROM information_schema"
 						 ".tables where schema_name='_%s' AND table_name"
 						 "='sl_table");
@@ -4502,12 +4503,13 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 				if( res != NULL)
 					PQclear(res);
 				dstring_terminate(&query);
+				dstring_terminate(&query2);
 				return -1;
 			}
 			/**
 			 * else not an issue
 			 */
-			dstring_terminate(&query);
+			dstring_terminate(&query2);
 			PQclear(res);
 			continue;
 			
@@ -4571,6 +4573,7 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 			 * 
 			 */
 			SlonDString query2;
+			dstring_init(&query2);
 			slon_mkquery(&query2,"select count(*) FROM information_schema"
 						 ".tables where schema_name='_%s' AND table_name"
 						 "='sl_sequence");
@@ -4587,12 +4590,13 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 				if( res != NULL)
 					PQclear(res);
 				dstring_terminate(&query);
+				dstring_terminate(&query2);
 				return -1;
 			}
 			/**
 			 * else not an issue
 			 */
-			dstring_terminate(&query);
+			dstring_terminate(&query2);
 			PQclear(res);
 			continue;
 			
