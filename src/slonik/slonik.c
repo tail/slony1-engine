@@ -4456,10 +4456,16 @@ replace_token(char *resout, char *lines, const char *token, const char *replacem
 	memcpy(resout, result_set, o);
 }
 
+/**
+ * checks all nodes (that an admin conninfo exists for)
+ * to find the next available table id.
+ *
+ *
+ */
 static int 
 slonik_get_next_tab_id(SlonikStmt * stmt)
 {
-	SlonikAdmInfo *adminfoDef;
+	SlonikAdmInfo *adminfo_def;
 	SlonDString query;
 	int max_tab_id=0;
 	int tab_id=0;
@@ -4471,18 +4477,18 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 				 "select max(tab_id) FROM \"_%s\".sl_table",
 				 stmt->script->clustername);
 	
-	for (adminfoDef = stmt->script->adminfo_list;
-		 adminfoDef; adminfoDef = adminfoDef->next)
+	for (adminfo_def = stmt->script->adminfo_list;
+		 adminfo_def; adminfo_def = adminfo_def->next)
 	{	
 		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
-															adminfoDef->no_id);
+													 adminfo_def->no_id);
 		if( adminfo == NULL)
 		{
 			
 			printf("%s:%d: Error: could not connect to node %d for next table"
 				   " id",
 				   stmt->stmt_filename,stmt->stmt_lno,
-				   adminfoDef->no_id);
+				   adminfo_def->no_id);
 			dstring_terminate(&query);
 			return -1;
 		}
@@ -4528,11 +4534,16 @@ slonik_get_next_tab_id(SlonikStmt * stmt)
 
 
 
-
+/**
+ * checks all nodes (that an admin conninfo exists for)
+ * to find the next available sequence id.
+ *
+ *
+ */
 static int 
 slonik_get_next_sequence_id(SlonikStmt * stmt)
 {
-	SlonikAdmInfo *adminfoDef;
+	SlonikAdmInfo *adminfo_def;
 	SlonDString query;
 	int max_seq_id=0;
 	int seq_id=0;
@@ -4545,17 +4556,17 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 				 "select max(seq_id) FROM \"_%s\".sl_sequence",
 				 stmt->script->clustername);
 	
-	for (adminfoDef = stmt->script->adminfo_list;
-		 adminfoDef; adminfoDef = adminfoDef->next)
+	for (adminfo_def = stmt->script->adminfo_list;
+		 adminfo_def; adminfo_def = adminfo_def->next)
 	{	
 		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
-															adminfoDef->no_id);
+													 adminfo_def->no_id);
 		if( adminfo == NULL)
 		{
 			
 			printf("%s:%d: Error: could not query node %d for next sequence id",
 				   stmt->stmt_filename,stmt->stmt_lno,
-				   adminfoDef->no_id);
+				   adminfo_def->no_id);
 			dstring_terminate(&query);
 			return -1;
 		}
@@ -4603,7 +4614,7 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 }
 
 /**
- * Find the origin node for a particular set.
+ * find the origin node for a particular set.
  * This function will query the first admin node it
  * finds to determine the origin of the set.
  *
@@ -4615,7 +4626,7 @@ slonik_get_next_sequence_id(SlonikStmt * stmt)
 static int find_origin(SlonikStmt * stmt,int set_id)
 {
 	
-	SlonikAdmInfo *adminfoDef;
+	SlonikAdmInfo *adminfo_def;
 	SlonDString query;
 	PGresult * res;
 	int origin_id=-1;
@@ -4625,11 +4636,11 @@ static int find_origin(SlonikStmt * stmt,int set_id)
 				 "select set_origin from \"_%s\".\"sl_set\" where set_id=%d",
 				 stmt->script->clustername,set_id);
 
-	for (adminfoDef = stmt->script->adminfo_list;
-		 adminfoDef; adminfoDef = adminfoDef->next)
+	for (adminfo_def = stmt->script->adminfo_list;
+		 adminfo_def; adminfo_def = adminfo_def->next)
 	{	
 		SlonikAdmInfo * adminfo = get_active_adminfo(stmt,
-													 adminfoDef->no_id);
+													 adminfo_def->no_id);
 		if(adminfo == NULL)
 			continue;
 		res = db_exec_select((SlonikStmt*)stmt,adminfo,&query);
@@ -4667,7 +4678,7 @@ static int find_origin(SlonikStmt * stmt,int set_id)
 
 
 /**
- * Adds any sequences that table_name depends on to the replication
+ * adds any sequences that table_name depends on to the replication
  * set.
  *
  * 
