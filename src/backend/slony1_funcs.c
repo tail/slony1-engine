@@ -459,8 +459,10 @@ _Slony_I_logTrigger(PG_FUNCTION_ARGS)
 		if (!strstr(OldDateStyle, "ISO"))
 #ifdef SETCONFIGOPTION_6
 			set_config_option("DateStyle", "ISO", PGC_USERSET, PGC_S_SESSION, true, true);
-#else
+#elif SETCONFIGOPTION_7
 		    set_config_option("DateStyle", "ISO", PGC_USERSET, PGC_S_SESSION, true, true, 0);
+#elif SETCONFIGOPTION_8
+		    set_config_option("DateStyle", "ISO", PGC_USERSET, PGC_S_SESSION, true, true, 0, 0);
 #endif
 		for (i = 0; i < tg->tg_relation->rd_att->natts; i++)
 		{
@@ -504,8 +506,10 @@ _Slony_I_logTrigger(PG_FUNCTION_ARGS)
 		if (!strstr(OldDateStyle, "ISO"))
 #ifdef SETCONFIGOPTION_6
 			set_config_option("DateStyle", OldDateStyle, PGC_USERSET, PGC_S_SESSION, true, true);
-#else
+#elif SETCONFIGOPTION_7
             set_config_option("DateStyle", OldDateStyle, PGC_USERSET, PGC_S_SESSION, true, true, 0);
+#elif SETCONFIGOPTION_8
+            set_config_option("DateStyle", OldDateStyle, PGC_USERSET, PGC_S_SESSION, true, true, 0, 0);
 #endif
 
 		/*
@@ -633,15 +637,19 @@ _Slony_I_logTrigger(PG_FUNCTION_ARGS)
 				if (!strstr(OldDateStyle, "ISO"))
 #ifdef SETCONFIGOPTION_6					
 					set_config_option("DateStyle", "ISO", PGC_USERSET, PGC_S_SESSION, true, true);
-#else
+#elif SETCONFIGOPTION_7
  				    set_config_option("DateStyle", "ISO", PGC_USERSET, PGC_S_SESSION, true, true, 0);
+#elif SETCONFIGOPTION_8
+ 				    set_config_option("DateStyle", "ISO", PGC_USERSET, PGC_S_SESSION, true, true, 0, 0);
 #endif
 				col_value = slon_quote_literal(SPI_getvalue(new_row, tupdesc, i + 1));
 				if (!strstr(OldDateStyle, "ISO"))
 #ifdef SETCONFIGOPTION_6
 					set_config_option("DateStyle", OldDateStyle, PGC_USERSET, PGC_S_SESSION, true, true);
-#else
+#elif SETCONFIGOPTION_7
  				    set_config_option("DateStyle", OldDateStyle, PGC_USERSET, PGC_S_SESSION, true, true, 0);
+#elif SETCONFIGOPTION_8
+ 				    set_config_option("DateStyle", OldDateStyle, PGC_USERSET, PGC_S_SESSION, true, true, 0, 0);
 #endif
 			}
 			cmddata_need = (cp - (char *) (cs->cmddata_buf)) + 16 +
