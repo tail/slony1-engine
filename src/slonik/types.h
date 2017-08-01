@@ -3,6 +3,10 @@
 #include <pg_config.h>
 
 
+#ifndef INT64_FORMAT
+#define INT64_FORMAT "%" INT64_MODIFIER "d"
+#endif
+
 /* ----------------------------------------------------------------
  *				Section 5:	offsetof, lengthof, endof, alignment
  * ----------------------------------------------------------------
