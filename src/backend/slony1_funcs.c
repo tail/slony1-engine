@@ -455,7 +455,13 @@ _Slony_I_logTrigger(PG_FUNCTION_ARGS)
 		 * Append the values
 		 */
 		need_comma = false;
+#ifdef GETCONFIGOPTIONBYNAME_2
 		OldDateStyle = GetConfigOptionByName("DateStyle", NULL);
+#elif defined (GETCONFIGOPTIONBYNAME_3)
+		OldDateStyle = GetConfigOptionByName("DateStyle", NULL, false);
+#else
+#error "GETCONFIGOPTIONBYNAME_2 or GETCONFIGOPTIONBYNAME_3 must be defined"
+#endif
 		if (!strstr(OldDateStyle, "ISO"))
 #ifdef SETCONFIGOPTION_6
 			set_config_option("DateStyle", "ISO", PGC_USERSET, PGC_S_SESSION, true, true);
@@ -633,7 +639,13 @@ _Slony_I_logTrigger(PG_FUNCTION_ARGS)
 				col_value = "NULL";
 			else
 			{
+#ifdef GETCONFIGOPTIONBYNAME_2
 				OldDateStyle = GetConfigOptionByName("DateStyle", NULL);
+#elif defined (GETCONFIGOPTIONBYNAME_3)
+				OldDateStyle = GetConfigOptionByName("DateStyle", NULL, false);
+#else
+#error "GETCONFIGOPTIONBYNAME_2 or GETCONFIGOPTIONBYNAME_3 must be defined"
+#endif
 				if (!strstr(OldDateStyle, "ISO"))
 #ifdef SETCONFIGOPTION_6					
 					set_config_option("DateStyle", "ISO", PGC_USERSET, PGC_S_SESSION, true, true);
